@@ -17,14 +17,18 @@ from st_aggrid import AgGrid, GridOptionsBuilder
 # 2 - Realizar Upload de Arquivo CSV:
 # Crie uma interface em Streamlit que permita ao usuário fazer o upload de um arquivo CSV contendo dados de turismo do portal Data.Rio.
 
+st.set_page_config(page_title='Análise de Dados de Turismo - Parque Nacional da Tijuca')
 st.title('Análise de Dados de Turismo - Parque Nacional da Tijuca')
+
 
 # Upload de CSV
 uploaded_file = st.file_uploader('Faça o upload do arquivo CSV', type=['csv'])
-
-if uploaded_file:
+@st.cache_data
+def load_data(uploaded_file):
     df = pd.read_csv(uploaded_file, sep=';')
-        
+    return df
+if uploaded_file:
+    df = load_data(uploaded_file)       
     st.write('Dados carregados com sucesso!')
     st.dataframe(df)
 else:
@@ -46,7 +50,6 @@ if uploaded_file:
                     (df['Categorias'].isin(selected_categorias))]
     st.write('Dados filtrados:')
     st.dataframe(df_filtrado[selected_columns])
-    st.cache_data
     def convert_df(df):
         return df.to_csv().encode('utf-8')
 
@@ -57,14 +60,14 @@ if uploaded_file:
 # 4 - Desenvolver Serviço de Download de Arquivos:
 # Implemente um serviço que permita ao usuário fazer o download dos dados filtrados em formato CSV diretamente pela interface da aplicação.
 
-
-# Baixar csv
-st.download_button(
-    label='Baixar dados filtrados',
-    data=csv,
-    file_name='dados_filtrados.csv',
-    mime='text/csv',
-)
+if uploaded_file:
+    # Baixar csv
+    st.download_button(
+        label='Baixar dados filtrados',
+        data=csv,
+        file_name='dados_filtrados.csv',
+        mime='text/csv',
+    )
 
 # 5 - Utilizar Barra de Progresso e Spinners:
 # Adicione uma barra de progresso e um spinner para indicar o carregamento dos dados enquanto o arquivo CSV é processado e exibido na interface.
@@ -85,9 +88,10 @@ if uploaded_file:
 # 6 - Utilizar Color Picker:
 # Adicione um color picker à interface que permita ao usuário personalizar a cor de fundo do painel e das fontes exibidas na aplicação.
 
-# Cor de fundo
-bg_color = st.color_picker('Escolha a cor de fundo', '#3C3756')
-st.markdown(f'''<style>.stApp {{background-color: {bg_color};}}</style>''', unsafe_allow_html=True)
+if uploaded_file:
+    # Cor de fundo
+    bg_color = st.color_picker('Escolha a cor de fundo', '#3C3756')
+    st.markdown(f'''<style>.stApp {{background-color: {bg_color};}}</style>''', unsafe_allow_html=True)
 
 
 
@@ -97,47 +101,38 @@ st.markdown(f'''<style>.stApp {{background-color: {bg_color};}}</style>''', unsa
 # Função para carregar o arquivo CSV
 
 # Armazenar os dados em cache e verificação do arquivo
-try:
-    @st.cache_data
-    def carregar_dados(arquivo_csv):
-        df = pd.read_csv(arquivo_csv, sep=';')
-        return df
 
-    uploaded_data = st.file_uploader('Faça o upload de um arquivo CSV', type=['csv'])
-    if uploaded_data:
-        df = carregar_dados(uploaded_data)
-        
-    
-except pd.errors.EmptyDataError:
-    st.error('O arquivo CSV está vazio ou no formato incorreto.')
-   
-except pd.errors.ParserError:
-    st.error('Erro ao analisar o arquivo CSV. Verifique o formato.')
-    
-except Exception as e:
-    st.error(f'Ocorreu um erro: {e}')
+# Função para carregar dados do CSV
+@st.cache_data
+def load_data(file):
+    return pd.read_csv(file, sep=';')
+
+
+
+# Carregamento de arquivo
+upload_file = st.file_uploader('Faça o upload do arquivo', type=['csv'])
 
 
 
 # 8 - Persistir Dados Usando Session State:
 # Implemente a persistência de dados na aplicação utilizando Session State para manter as preferências do usuário (como filtros e seleções) durante a navegação.
 
-# Inicializa session_state
-if 'selecionado' not in st.session_state:
-    st.session_state.selecionado = None
+# Verifica se o arquivo já foi carregado anteriormente
+if 'Parque_Nacional_Tijuca.csv' not in st.session_state:
+    st.session_state.csv_data = None
 
-# Implementa o filtro 
-columns_selected = st.multiselect("Selecione as colunas que deseja ", df.columns.tolist(), default=df.columns.tolist())
-setores_selected = st.multiselect("Selecione os setores que deseja ", df['Setor'].unique(), default=df['Setor'].unique())
-segmentos_selected = st.multiselect("Selecione os segmentos que deseja ", df['Segmento'].unique(), default=df['Segmento'].unique())
-categorias_selected = st.multiselect("Selecione as categorias que deseja ", df['Categorias'].unique(), default=df['Categorias'].unique())
-df_filtrado = df[(df['Setor'].isin(setores_selected)) & 
-                 (df['Segmento'].isin(segmentos_selected)) & 
-                 (df['Categorias'].isin(categorias_selected))]
-st.write('Dados filtrados:')
-st.dataframe(df_filtrado[columns_selected])
-st.cache_data
+if upload_file is not None:
+    # Carrega o arquivo e armazena no session state
+    st.session_state.csv_data = load_data(upload_file)
+    st.session_state.upload_filename = upload_file.name
+    st.success(f'Arquivo {upload_file.name} carregado com sucesso!')
 
+# Verifica se há dados no session state e exibe
+if st.session_state.csv_data is not None:
+    st.write(f"Arquivo carregado: {st.session_state.upload_filename}")
+    st.write(st.session_state.csv_data)
+else:
+    st.write("Nenhum arquivo carregado ainda.")
 
 # 9 - Criar Visualizações de Dados - Tabelas:
 # Crie uma tabela interativa que exiba os dados carregados e permita ao usuário ordenar e filtrar as colunas diretamente pela interface.
@@ -197,29 +192,31 @@ if uploaded_file:
 # 11 - Criar Visualizações de Dados - Gráficos Avançados:
 # Adicione gráficos mais avançados (como histograma ou scatter plot) para fornecer insights mais profundos sobre os dados.
 
-# Histograma
-st.subheader('Histograma')
-x_col_histo = st.selectbox('Selecione o eixo x (Indico selecionar uma coluna categórica)', colunas, key='x_histo')
-y_col_histo = st.selectbox('Selecione o eixo Y (Indico selecionar "Ano")', colunas, key='y_histo')
-grafico_histograma = px.histogram(df, x=x_col_histo, y=y_col_histo, nbins=200, )
-st.plotly_chart(grafico_histograma)
+if uploaded_file:
+    # Histograma
+    st.subheader('Histograma')
+    x_col_histo = st.selectbox('Selecione o eixo x (Indico selecionar uma coluna categórica)', colunas, key='x_histo')
+    y_col_histo = st.selectbox('Selecione o eixo Y (Indico selecionar "Ano")', colunas, key='y_histo')
+    grafico_histograma = px.histogram(df, x=x_col_histo, y=y_col_histo, nbins=200, )
+    st.plotly_chart(grafico_histograma)
 
-# Scatter plot
-st.subheader('Scatter Plot')
-x_col_scatter = st.selectbox('Selecione o eixo x', colunas, key='x_scatter')
-y_col_scatter = st.selectbox('Selecione o eixo Y ', colunas, key='y_scatter')
-grafico_scatter = px.scatter(df, x=x_col_scatter, y=y_col_scatter)
-st.plotly_chart(grafico_scatter)
+    # Scatter plot
+    st.subheader('Scatter Plot')
+    x_col_scatter = st.selectbox('Selecione o eixo x', colunas, key='x_scatter')
+    y_col_scatter = st.selectbox('Selecione o eixo Y ', colunas, key='y_scatter')
+    grafico_scatter = px.scatter(df, x=x_col_scatter, y=y_col_scatter)
+    st.plotly_chart(grafico_scatter)
 
 
 # 12 - Exibir Métricas Básicas:
 # Implemente a exibição de métricas básicas (como contagem de registros, médias, somas) diretamente na interface para fornecer um resumo rápido dos dados carregados.
 
+if uploaded_file:
 # Limpar colunas numéricas removendo espaços e convertendo para números
-for coluna in df.columns:
-    if df[coluna].dtype == 'object':
-        df[coluna] = df[coluna].str.replace(r'[^\d]', '', regex=True) 
-        df[coluna] = pd.to_numeric(df[coluna], errors='coerce')  
+    for coluna in df.columns:
+        if df[coluna].dtype == 'object':
+            df[coluna] = df[coluna].str.replace(r'[^\d]', '', regex=True) 
+            df[coluna] = pd.to_numeric(df[coluna], errors='coerce')  
 
 if uploaded_file:
 
