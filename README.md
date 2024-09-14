@@ -1,0 +1,1 @@
+Neste teste de performance foi usado como ferramenta para auxiliar o desenvolvimento o GPT-40(toda IA pode dar resultados tendenciosos, imprecisos e códigos com bugs, é necessário conhecimento da lógica de programação da linguagem utilizada para poder performar corretamente).
